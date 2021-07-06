@@ -2,12 +2,11 @@ import os
 from warnings import filterwarnings
 from flask import Flask, flash, request, redirect, url_for,render_template
 from werkzeug.utils import secure_filename
-import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.vgg16 import preprocess_input
 import numpy as np
 from tensorflow.keras.preprocessing import image
-
+from PIL import Image
 
 UPLOAD_FOLDER = './static/images/'
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
@@ -34,22 +33,26 @@ def upload_file():
         if file.filename == '':
             flash('No selected file')
             return redirect(request.url)
-
         if file and allowed_file(file.filename):
-            model = load_model('model/chest_xray_detector.h5')
-            filename = secure_filename(file.filename)
-            file.save(str(app.config['UPLOAD_FOLDER'])+ filename)
-            img_file=image.load_img(str(app.config['UPLOAD_FOLDER'])+ filename,target_size=(224,224))
-            x= image.img_to_array(img_file)
-            x=np.expand_dims(x,axis=0)
-            img_data=preprocess_input(x)
-            result=model.predict(img_data)
-            if result[0][0]>0.5:
-                prediction = "Result is Normal"
-            else:
-                prediction = "Affected By PNEUMONIA"
+            if 'file' in request.files:
+                print('tapinda')
+                img = Image.open(request.files['file']).convert('L')
+                img = img.resize((36,36))
+                img = np.asarray(img)
+                img = img.reshape((1,36,36,1))
+                img = img / 255.0
+                model = load_model("models/pneumonia.h5")
+                Pred = np.argmax(model.predict(img)[0])
+                print(Pred)
+
+                if Pred == 0:
+                    prediction = "Result is Normal"
+                else:
+                    prediction = "Affected By PNEUMONIA"
             
-            return render_template('main.html', prediction= prediction)
+                return render_template('main.html', prediction= prediction)
+            else:
+                print('hello')
     return render_template('main.html')
 
 if __name__ == '__main__':
